@@ -1,34 +1,43 @@
 
 import streamlit as st
+import pickle
+import numpy as np
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 st.title("AI Spam and Scam Detection")
-st.write("Enter a message to check for suspicious signs.")
+st.write("Check a message for possible spam and warning signs.")
+
+@st.cache_resource
+def load_files():
+    model = load_model("spam_model.keras")
+
+    with open("tokenizer.pkl", "rb") as file:
+        tokenizer = pickle.load(file)
+
+    return model, tokenizer
+
+model, tokenizer = load_files()
 
 message = st.text_area("Enter your message")
-
-suspicious_words = [
-    "won", "free", "prize", "urgent",
-    "click here", "verify your account",
-    "password", "otp", "bank details"
-]
 
 if st.button("Check Message"):
     if message.strip() == "":
         st.warning("Please enter a message.")
     else:
-        found = []
+        sequence = tokenizer.texts_to_sequences([message])
+        padded = pad_sequences(sequence, maxlen=50)
 
-        for word in suspicious_words:
-            if word in message.lower():
-                found.append(word)
+        prediction = model.predict(padded, verbose=0)[0][0]
 
-        if found:
-            st.error("Warning: Suspicious signs found!")
-            st.write("Suspicious phrases:", ", ".join(found))
+        if prediction >= 0.5:
+            st.error("Prediction: SPAM")
         else:
-            st.success("No suspicious phrases found.")
+            st.success("Prediction: NORMAL MESSAGE")
 
         st.subheader("Safety Advice")
         st.write("- Avoid clicking unknown links.")
         st.write("- Never share your password or OTP.")
         st.write("- Verify messages through official sources.")
+
+        st.caption("Predictions may be incorrect. Always check the sender.")
